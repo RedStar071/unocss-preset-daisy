@@ -239,7 +239,8 @@ export async function presetDaisy(options?: DaisyOptions): Promise<Preset<Record
 	 * `extend` key, so hoist them and `bg-primary`, `rounded-box`, … work without extra user config.
 	 */
 	const { theme: daisyTheme, ...restConfig } = config ?? {};
-	const theme = daisyTheme?.extend == null ? daisyTheme : { ...daisyTheme, ...daisyTheme.extend, extend: undefined };
+	const { extend, ...theme } = daisyTheme ?? {};
+	Object.assign(theme, extend);
 
 	return {
 		...restConfig,

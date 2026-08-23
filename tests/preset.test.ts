@@ -99,6 +99,13 @@ describe('presetDaisy', () => {
 		expect(css).toContain('var(--radius-box)');
 	});
 
+	it('given the hoisted theme then it carries no `extend` key', async () => {
+		// a stray `extend: undefined` would let UnoCSS's theme merge wipe out an earlier preset's
+		// legitimate `theme.extend` when presetDaisy is listed before it in `presets: [...]`
+		const { theme } = await presetDaisy({ logs: false });
+		expect(theme).not.toHaveProperty('extend');
+	});
+
 	it('given the default variable prefix then it rewrites daisyUI `--tw-` variables', async () => {
 		const { css } = await uno.generate('btn card badge alert', { preflights: true });
 		expect(css).not.toContain('--tw-');

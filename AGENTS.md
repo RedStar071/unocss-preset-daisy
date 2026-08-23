@@ -63,9 +63,10 @@ Everything below is load-bearing — removing it re-breaks a supported daisyUI r
   API. They are re-exported as UnoCSS variants (`daisy-is-drawer-open`, …) matching on `<name>:`.
 - **`@starting-style`.** Handled by `postcss-nested`'s default bubbling — do **not** reintroduce the
   old "smuggle it through as a declaration" hack, it produced invalid `@starting-style:{…}` output.
-- **`theme.extend`.** daisyUI returns its design tokens in the tailwind `theme.extend` shape. The
-  preset hoists them into the UnoCSS `theme`, so `bg-primary` / `rounded-box` work with no extra
-  user config. Do not re-add `daisyui/functions/variables.js` to the demo config.
+- **`theme.extend` (v4 and v5, unversioned — both return `{ theme: { extend: variables } }`).**
+  daisyUI returns its design tokens in the tailwind `theme.extend` shape. The preset hoists them
+  into the UnoCSS `theme`, so `bg-primary` / `rounded-box` work with no extra user config. Do not
+  re-add `daisyui/functions/variables.js` to the demo config.
 - **Minimum v5 is `5.0.24`.** Earlier 5.0.x releases do `import { version } from "./package.json"`
   without an import attribute and cannot be loaded by Node's ESM loader at all. That is why
   `peerDependencies.daisyui` is `^4.12.14 || >=5.0.24` and not `^5.0.0`.
