@@ -1,0 +1,25 @@
+{
+	"$schema": "https://json.schemastore.org/tsconfig",
+	"compilerOptions": {
+		"target": "ESNext",
+		"lib": ["ESNext", "DOM"],
+		"module": "Preserve",
+		"moduleResolution": "Bundler",
+		"moduleDetection": "force",
+		"resolveJsonModule": true,
+		"allowImportingTsExtensions": true,
+		"verbatimModuleSyntax": true,
+		"isolatedModules": true,
+		"strict": true,
+		"noFallthroughCasesInSwitch": true,
+		"noImplicitOverride": true,
+		"noImplicitReturns": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"declaration": true,
+		"newLine": "lf",
+		"noEmit": true,
+		"skipLibCheck": true,
+		"types": ["node"]
+	}
+}

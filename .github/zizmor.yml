@@ -1,0 +1,16 @@
+rules:
+    # `semantic-pull-requests.yml` never checks out pull request code: it only reads the PR title
+    # through the API and sets a commit status, so the privileged trigger is safe here.
+    dangerous-triggers:
+        ignore:
+            - semantic-pull-requests.yml
+    # The release job intentionally persists its token (no `persist-credentials: false`) so git reads
+    # keep working while `changesets/action` pushes the version bump, tags and the release PR.
+    artipacked:
+        ignore:
+            - release.yml
+    # pkg.pr.new publishes preview tarballs through its GitHub App using the workflow run's own
+    # identity: there is no registry token and no trusted publishing counterpart to migrate to.
+    use-trusted-publishing:
+        ignore:
+            - pkg-pr-new.yml

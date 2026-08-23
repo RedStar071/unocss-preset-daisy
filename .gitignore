@@ -1,3 +1,7 @@
 node_modules
 dist
+coverage
+demo/dist
+.scratch
 .DS_Store
+*.tsbuildinfo

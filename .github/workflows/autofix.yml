@@ -1,0 +1,47 @@
+# needed to securely identify the workflow
+name: autofix.ci
+
+on:
+    pull_request:
+        branches:
+            - main
+    merge_group:
+        branches:
+            - main
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
+    cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+    code:
+        name: 🤖 Autofix code
+        runs-on: ubuntu-24.04-arm
+        timeout-minutes: 15
+        permissions:
+            contents: read
+
+        steps:
+            - name: Checkout Project
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+            - name: Setup Node.js v24
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24
+                  cache: pnpm
+
+            - name: Install Dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Lint and format fix
+              run: pnpm lint:fix
+
+            - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4

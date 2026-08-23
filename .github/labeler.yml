@@ -1,0 +1,30 @@
+preset:
+    - changed-files:
+          - any-glob-to-any-file:
+                - src/**
+
+tests:
+    - changed-files:
+          - any-glob-to-any-file:
+                - tests/**
+
+demo:
+    - changed-files:
+          - any-glob-to-any-file:
+                - demo/**
+
+ci:
+    - changed-files:
+          - any-glob-to-any-file:
+                - .github/**
+
+documentation:
+    - changed-files:
+          - any-glob-to-any-file:
+                - '**/*.md'
+
+dependencies:
+    - changed-files:
+          - any-glob-to-any-file:
+                - package.json
+                - pnpm-lock.yaml
