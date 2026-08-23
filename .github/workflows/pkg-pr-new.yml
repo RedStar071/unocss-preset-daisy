@@ -21,6 +21,9 @@ jobs:
         runs-on: ubuntu-24.04-arm
         timeout-minutes: 15
         if: github.repository_owner == 'RedStar071'
+        # Non-blocking: requires the pkg-pr-new GitHub App (https://github.com/apps/pkg-pr-new) to
+        # be installed on the repo, which isn't automatable from a workflow. Remove once installed.
+        continue-on-error: true
         permissions:
             contents: read
 
