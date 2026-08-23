@@ -1,0 +1,11 @@
+{
+	"$schema": "https://unpkg.com/knip@6/schema.json",
+	"entry": ["tests/**/*.test.ts", "demo/uno.config.ts", "demo/vite.config.ts"],
+	"project": ["src/**/*.ts", "tests/**/*.ts", "demo/**/*.ts", "*.config.ts"],
+	"ignoreDependencies": ["@iconify-json/octicon", "@unocss/reset"],
+	"rules": {
+		"enumMembers": "off",
+		"exports": "off",
+		"types": "off"
+	}
+}

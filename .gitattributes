@@ -1,1 +1,4 @@
+# oxfmt writes LF and .editorconfig asks for LF, so keep the working copy LF on every platform
+* text=auto eol=lf
+
 /demo linguist-documentation

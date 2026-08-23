@@ -1,19 +1,15 @@
-import type { Theme } from 'unocss/preset-mini';
-import theme from 'daisyui/functions/variables.js';
-// import colors from 'daisyui/src/theming/index.js';
-import { defineConfig, presetIcons, presetUno } from 'unocss';
-import { presetDaisy } from '../src/index.js'; // '@ameinhardt/unocss-preset-daisy';
+import { defineConfig, presetIcons, presetWind3 } from 'unocss';
+import { presetDaisy } from '../src/index.js'; // '@redstar071/unocss-preset-daisy';
 
-const { rules, ...preset } = presetUno();
+// preset-wind3 ships `tab`/`table` rules that collide with the daisyUI components of the same name
+const { rules, ...preset } = presetWind3();
 
 export default defineConfig({
-  presets: [presetDaisy(), {
-    ...preset,
-    rules: rules!.filter(([selector]) => !['/^tab(?:-(.+))?$/', 'table'].includes(selector.toString()))
-  }, presetIcons()],
-  separators: [':'],
-  theme: {
-    ...theme as Theme
-    // colors: colors as Record<string, string>
-  }
+	presets: [
+		presetDaisy(),
+		{ ...preset, rules: rules!.filter(([selector]) => !['/^tab(?:-(.+))?$/', 'table'].includes(selector.toString())) },
+		presetIcons()
+	],
+	// preset-mini uses `-` as a variant separator too, which collides with e.g. `file-input`
+	separators: [':']
 });

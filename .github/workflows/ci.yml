@@ -1,50 +1,221 @@
-name: CI
+name: ci
 
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
+    pull_request:
+        branches:
+            - main
+    push:
+        branches:
+            - main
+    merge_group:
+        branches:
+            - main
 
-env:
-  BASE_URL: /unocss-preset-daisy/
+permissions:
+    contents: read
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.event.number || github.sha }}
+    cancel-in-progress: true
 
 jobs:
-  build_demo:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    lint:
+        name: 🔠 Lint project
+        runs-on: ubuntu-24.04-arm
+        timeout-minutes: 15
 
-      - run: npm i -g pnpm
+        steps:
+            - name: Checkout Project
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 'lts/*'
-          cache: pnpm
-          registry-url: https://registry.npmjs.org/
+            - name: Setup pnpm
+              uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
 
-      - run: pnpm install
+            - name: Setup Node.js v24
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24
+                  cache: pnpm
 
-      - run: pnpm build:demo
+            - name: Install Dependencies
+              run: pnpm install --frozen-lockfile
 
-      - name: Upload static files as artifact
-        id: deployment
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: demo/dist/
+            - name: Run lint
+              run: pnpm lint
 
-  # Deployment job
-  deploy:
-    needs: build_demo
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+    build:
+        name: 🏗️ Build & Typecheck
+        runs-on: ubuntu-24.04-arm
+        timeout-minutes: 15
+
+        steps:
+            - name: Checkout Project
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - name: Add problem matchers
+              run: echo "::add-matcher::.github/problemMatchers/tsc.json"
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+            - name: Setup Node.js v24
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24
+                  cache: pnpm
+
+            - name: Install Dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Typecheck code
+              run: pnpm typecheck
+
+            - name: Build code
+              run: pnpm build
+
+            - name: Build demo
+              run: pnpm build:demo
+
+    unit:
+        name: 🧪 Unit tests
+        runs-on: ubuntu-24.04-arm
+        timeout-minutes: 10
+
+        steps:
+            - name: Checkout Project
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+            - name: Setup Node.js v24
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24
+                  cache: pnpm
+
+            - name: Install Dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Run unit tests
+              run: pnpm test --coverage --reporter=default --reporter=junit --outputFile=test-report.junit.xml
+
+            - name: Upload test results to Codecov
+              if: ${{ !cancelled() && github.repository_owner == 'RedStar071' }}
+              uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+              with:
+                  disable_search: true
+                  files: test-report.junit.xml
+                  flags: unit
+                  report_type: test_results
+                  token: ${{ secrets.CODECOV_TOKEN }}
+
+            - name: Upload coverage reports to Codecov
+              if: ${{ !cancelled() && github.repository_owner == 'RedStar071' }}
+              uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+              with:
+                  disable_search: true
+                  files: coverage/lcov.info,coverage/clover.xml
+                  flags: unit
+                  token: ${{ secrets.CODECOV_TOKEN }}
+
+    compat:
+        name: 🌼 daisyUI ${{ matrix.daisyui }} compatibility
+        runs-on: ubuntu-24.04-arm
+        timeout-minutes: 10
+        strategy:
+            fail-fast: false
+            matrix:
+                # oldest supported v4, oldest supported v5 and the current v5 release
+                daisyui: ['4.12.14', '5.0.24', 'latest']
+
+        steps:
+            - name: Checkout Project
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+            - name: Setup Node.js v24
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24
+                  cache: pnpm
+
+            - name: Install Dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Pin daisyUI ${{ matrix.daisyui }}
+              env:
+                  DAISYUI_VERSION: ${{ matrix.daisyui }}
+              run: pnpm add -D "daisyui@${DAISYUI_VERSION}"
+
+            - name: Run the daisyUI smoke test
+              run: pnpm exec vitest run tests/compat.test.ts
+
+    knip:
+        name: 🧹 Unused code check
+        runs-on: ubuntu-24.04-arm
+        timeout-minutes: 10
+
+        steps:
+            - name: Checkout Project
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+            - name: Setup Node.js v24
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24
+                  cache: pnpm
+
+            - name: Install Dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Check for unused code
+              run: pnpm exec knip
+
+    changesets:
+        name: 🦋 Verify changesets
+        runs-on: ubuntu-24.04-arm
+        timeout-minutes: 10
+        if: |
+            github.event_name == 'pull_request'
+            && github.event.pull_request.title != 'chore: update changelog and release'
+            && !startsWith(github.head_ref, 'changeset-release/')
+
+        steps:
+            - name: Checkout Project
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0
+                  persist-credentials: false
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+            - name: Setup Node.js v24
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24
+                  cache: pnpm
+
+            - name: Install Dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Verify changesets
+              env:
+                  BASE_REF: ${{ github.base_ref }}
+              run: pnpm exec changeset status --since="origin/${BASE_REF}"
