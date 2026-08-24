@@ -3,19 +3,10 @@ import { createGenerator, presetWind3 } from 'unocss';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { presetDaisy } from '../src/index.js';
 
-/**
- * preset-mini/wind3 ship `tab` and `table` rules that collide with the daisyUI components of the
- * same name, exactly like the demo config documents in the README.
- */
-const COLLIDING = new Set(['/^tab(?:-(.+))?$/', 'table']);
-
+/** presetDaisy goes last, so its components win the name clashes with preset-wind, as the README says. */
 async function createUno(options?: Parameters<typeof presetDaisy>[0]): Promise<UnoGenerator> {
-	const { rules, ...wind3 } = presetWind3();
 	return createGenerator({
-		presets: [
-			await presetDaisy({ logs: false, ...options }),
-			{ ...wind3, rules: rules!.filter(([matcher]) => !COLLIDING.has(matcher.toString())) }
-		],
+		presets: [presetWind3(), await presetDaisy({ logs: false, ...options })],
 		separators: [':']
 	});
 }

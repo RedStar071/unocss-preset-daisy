@@ -41,10 +41,25 @@ converts the JS-in-CSS objects it hands back into UnoCSS rules:
 4. A small postcss pipeline runs over that AST: a local `fix-css` plugin followed by
    `postcss-nested`.
 5. `flattenRules` walks the flattened AST and yields `[parents, selector, declarations]` tuples,
-   which become `CSSObjectInput`s keyed by class token, wired up through UnoCSS's `symbols.layer` /
+   which become `CSSEntriesInput`s keyed by class token, wired up through UnoCSS's `symbols.layer` /
    `symbols.parent` / `symbols.selector` / `symbols.sort`.
 6. `addBase` output becomes preflights in the `daisy-base` layer; components and utilities become
-   dynamic rules in `daisy-components` / `daisy-utilities`.
+   **static** rules in `daisy-components` / `daisy-utilities`.
+
+### Why static rules and `CSSEntriesInput`
+
+- **Static, not dynamic.** UnoCSS resolves a token against `rulesStaticMap` _before_ it tries any
+  dynamic rule, so a dynamic `^filter$` can never beat preset-wind's static `filter` no matter how
+  the presets are ordered. As static rules the clash (`filter`, `table`, `tab`, `collapse`) is
+  decided by preset order, and listing `presetDaisy()` last is enough — that is why the demo config
+  and `tests/preset.test.ts` no longer filter preset-wind rules.
+- **Entries, not objects.** daisyUI ships CSS fallback chains as repeated declarations
+  (`height: ['4rem', 'calc(4rem + env(safe-area-inset-bottom))']`). A `CSSObject` collapses those to
+  the last value; `CSSEntriesInput` keeps both. Affects `.dock*`, `.drawer-side`, `.steps .step`,
+  `.tab-content`, `.select`, and the calendar shims.
+
+`tests/coverage.test.ts` guards both: it diffs the preset's output against everything daisyUI's
+plugin emits, and checks that no component is shadowed by preset-wind3/preset-wind4.
 
 ### daisyUI version specifics
 
@@ -90,8 +105,9 @@ Everything below is load-bearing — removing it re-breaks a supported daisyUI r
 - When bumping daisyUI, run `pnpm test` first: a new `@` at-rule nested inside a rule surfaces as
   `Error: unexpected mixed declarations node` from `flattenRules`. The fix is usually one entry in
   `BUBBLE` plus a regression test, not a change to the flattener.
-- The demo config must keep `separators: [':']` and must keep filtering preset-wind3's `tab`/`table`
-  rules — both collide with daisyUI component names. The README documents why.
+- The demo config must keep `separators: [':']` (preset-mini also treats `-` as a variant separator,
+  which breaks `file-input`) and must keep `presetDaisy()` **last** in `presets: [...]`. The README
+  documents both.
 - CI uses `pnpm/action-setup` + `actions/setup-node` rather than the newer `pnpm/setup@v2` used by
   `wolfstar-project/stars-components`: that action requires pnpm >= 11, and this repo is still
   pinned to pnpm 10. Bump `packageManager` first if you want to switch.

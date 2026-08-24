@@ -1,5 +1,5 @@
 import type { AtRule, ChildNode, Container, Declaration, Rule } from 'postcss';
-import type { CSSObjectInput, DynamicRule, Preflight, Preset, Variant } from 'unocss';
+import type { CSSEntriesInput, CSSEntry, Preflight, Preset, StaticRule, Variant } from 'unocss';
 import daisyui from 'daisyui';
 import postcss from 'postcss';
 import nested from 'postcss-nested';
@@ -81,7 +81,7 @@ function* flattenRules(nodes: ChildNode[], parents: string[] = []): Generator<[s
 	}
 }
 
-function getUnoCssElements(childNodes: ChildNode[], cssObjectInputsByClassToken: Map<string, CSSObjectInput[]>, layer?: string): Preflight[] {
+function getUnoCssElements(childNodes: ChildNode[], cssEntriesByClassToken: Map<string, CSSEntriesInput[]>, layer: string): Preflight[] {
 	const preflights: Preflight[] = [];
 	Array.from(flattenRules(childNodes)).forEach((rawElement, idx) => {
 		if (typeof rawElement === 'string') {
@@ -107,30 +107,39 @@ function getUnoCssElements(childNodes: ChildNode[], cssObjectInputsByClassToken:
 		}
 
 		for (const classToken of classTokens) {
-			let cssObjectInputs = cssObjectInputsByClassToken.get(classToken);
-			if (cssObjectInputs == null) {
-				cssObjectInputs = [];
-				cssObjectInputsByClassToken.set(classToken, cssObjectInputs);
+			let cssEntries = cssEntriesByClassToken.get(classToken);
+			if (cssEntries == null) {
+				cssEntries = [];
+				cssEntriesByClassToken.set(classToken, cssEntries);
 			}
-			cssObjectInputs.push({
-				...Object.fromEntries(declarations.map(({ important, prop, value }) => [prop, `${value}${important ? ' !important' : ''}`])),
-				[symbols.layer]: layer,
-				[symbols.parent]: parents.join(' $$ '),
-				[symbols.selector]: (currentSelector: string) =>
-					selector === currentSelector
-						? selector
-						: selector.replaceAll(CSSCLASS, (all, c) => {
-								return c === classToken ? currentSelector : all;
-							}),
-				[symbols.sort]: idx
-			});
+			/*
+			 * Entries, not an object: daisyUI ships CSS fallback chains as repeated declarations
+			 * (`height: ['4rem', 'calc(4rem + env(safe-area-inset-bottom))']` on `.dock`, `.drawer-side`,
+			 * `.steps .step`, …). An object literal would collapse them to the last value and drop the
+			 * fallback for browsers that do not understand the modern one.
+			 */
+			cssEntries.push([
+				...declarations.map(({ important, prop, value }): CSSEntry => [prop, `${value}${important ? ' !important' : ''}`]),
+				[symbols.layer, layer],
+				[symbols.parent, parents.join(' $$ ')],
+				[
+					symbols.selector,
+					(currentSelector: string) =>
+						selector === currentSelector
+							? selector
+							: selector.replaceAll(CSSCLASS, (all, c) => {
+									return c === classToken ? currentSelector : all;
+								})
+				],
+				[symbols.sort, idx]
+			]);
 		}
 	});
 	return preflights;
 }
 
 export async function presetDaisy(options?: DaisyOptions): Promise<Preset<Record<string, any>>> {
-	const cssObjectInputsByClassToken = new Map<string, CSSObjectInput[]>();
+	const cssEntriesByClassToken = new Map<string, CSSEntriesInput[]>();
 	const processor = postcss(
 		{
 			Once(root) {
@@ -186,14 +195,14 @@ export async function presetDaisy(options?: DaisyOptions): Promise<Preset<Record
 			preflightPromises.push(
 				processor
 					.process(parse(jsCss), { from: 'components', to: 'components' })
-					.then((ast) => getUnoCssElements(ast.root.nodes, cssObjectInputsByClassToken, 'daisy-components'))
+					.then((ast) => getUnoCssElements(ast.root.nodes, cssEntriesByClassToken, 'daisy-components'))
 			);
 		},
 		addUtilities(jsCss) {
 			preflightPromises.push(
 				processor
 					.process(parse(jsCss), { from: 'utilities', to: 'utilities' })
-					.then((ast) => getUnoCssElements(ast.root.nodes, cssObjectInputsByClassToken, 'daisy-utilities'))
+					.then((ast) => getUnoCssElements(ast.root.nodes, cssEntriesByClassToken, 'daisy-utilities'))
 			);
 		},
 		/* daisyUI >= 5.1 registers the `is-drawer-open` / `is-drawer-close` variants through the plugin API. */
@@ -218,15 +227,21 @@ export async function presetDaisy(options?: DaisyOptions): Promise<Preset<Record
 	});
 
 	const preflights = await Promise.all(preflightPromises).then((p) => p.flat());
-	const rules: DynamicRule[] = [];
-	for (const [classToken, cssObjectInputs] of cssObjectInputsByClassToken) {
-		const noMerge = cssObjectInputs.some((cssObjectInput) => {
-			const selector = (cssObjectInput as Record<symbol, unknown>)[symbols.selector] as ((selector: string) => string) | undefined;
-			return selector != null && NOMERGE.test(selector(`.${classToken}`));
-		});
+	/*
+	 * Static rules, not dynamic ones: UnoCSS looks a token up in `rulesStaticMap` *before* it tries
+	 * any dynamic rule, so a dynamic `^btn$` always loses to another preset's static rule of the same
+	 * name no matter how the presets are ordered. daisyUI collides with preset-wind on `filter`,
+	 * `table`, `tab` and `collapse`; as static rules those are decided by preset order instead, so
+	 * listing `presetDaisy()` after the wind preset is enough — no rule filtering in user config.
+	 */
+	const rules: StaticRule[] = [];
+	for (const [classToken, cssEntries] of cssEntriesByClassToken) {
+		const noMerge = cssEntries.some((entries) =>
+			entries.some(([key, value]) => key === symbols.selector && NOMERGE.test(value(`.${classToken}`)))
+		);
 		rules.push([
-			new RegExp(`^${classToken}$`),
-			() => cssObjectInputs,
+			classToken,
+			cssEntries,
 			{
 				autocomplete: classToken,
 				noMerge

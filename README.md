@@ -36,9 +36,13 @@ npm install unocss daisyui @redstar071/unocss-preset-daisy
       separators: [':']
     ...
     ```
-- **colliding rules** \
-  preset-mini / preset-wind3 ship `tab` and `table` rules that shadow the daisyUI components of the
-  same name. Filter them out if you need the components — see `demo/uno.config.ts`.
+- **colliding rules — list `presetDaisy()` last** \
+  A handful of daisyUI class names also exist as preset-wind utilities: `filter`, `table`, `tab`
+  (preset-wind3 and preset-wind4) and `collapse` (preset-wind4). The preset registers its classes as
+  static rules, so preset order decides the winner: put `presetDaisy()` **after** the wind preset and
+  every daisyUI component wins. No rule filtering needed. Only those exact tokens are shadowed —
+  `filter-none`, `table-fixed`, `tab-4`, … keep coming from preset-wind, and `blur-*`/`grayscale`
+  already emit the `filter` composition themselves.
 - **variable prefixes** \
   By default, the UnoCSS Mini preset uses `un-`
   [as variable prefix](https://unocss.dev/presets/mini#variableprefix) for transformation values,
@@ -147,14 +151,21 @@ This preset accepts [the same config as daisyUI](https://daisyui.com/docs/config
 
 ## ⚠️ Limitations
 
-- **This is not a full daisyUI port.** \
-  All daisyUI components/utilities should work but they may not work with some UnoCSS features.
 - **Some unused styles may be imported.** \
-  This is both due to lots of hacks being used and how UnoCSS works. However, the preset will try to
-  figure out the minimum styles needed, thus the cost is trivial most of the time.
+  daisyUI emits a few rules that carry no class at all (`:where(:root)`, `@keyframes`, `@property`);
+  those are shipped as preflights and are therefore always present. Everything that _does_ carry a
+  class is generated on demand, so the cost is trivial most of the time.
 - **`@scope` scope roots are not variant-aware.** \
   daisyUI's `.join` uses `@scope (&)`; the preset resolves `&` to the plain component selector, so
   the scope root stays `.join` even when the utility itself is generated behind a variant.
+- **Four class names are shared with preset-wind.** \
+  `filter`, `table`, `tab` and `collapse` exist in both. Whichever preset is listed last wins — see
+  the [colliding rules](#-notes) note above.
+
+Every component and utility daisyUI ships is covered: `tests/coverage.test.ts` asserts that each of
+the ~650 class names daisyUI's plugin emits resolves to a rule, that no declaration is dropped
+(including CSS fallback chains such as `.dock`'s `height: 4rem; height: calc(4rem + env(…))`), and
+that no component is shadowed by preset-wind3 or preset-wind4.
 
 ## 🤝 Contributing
 
